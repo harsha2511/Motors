@@ -1,21 +1,26 @@
 import { useState, useMemo } from 'react';
-import { Plus, Download, Upload } from 'lucide-react';
+import { Download, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LeadFilters } from '@/components/leads/LeadFilters';
 import { LeadTable } from '@/components/leads/LeadTable';
 import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
-import { mockLeads, Lead, LeadStatus, LeadSource } from '@/data/mockLeads';
+import { AddLeadDialog } from '@/components/leads/AddLeadDialog';
+import { Lead, LeadStatus, LeadSource } from '@/data/mockLeads';
+import { useLeads } from '@/context/LeadsContext';
+import { exportLeadsToCsv } from '@/lib/exportLeads';
+import { toast } from '@/hooks/use-toast';
 
 export default function LeadListing() {
+  const { leads } = useLeads();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
   const [sourceFilter, setSourceFilter] = useState<LeadSource | 'all'>('all');
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const filteredLeads = useMemo(() => {
-    return mockLeads.filter((lead) => {
+    return leads.filter((lead) => {
       const matchesSearch = 
         lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lead.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -26,7 +31,7 @@ export default function LeadListing() {
 
       return matchesSearch && matchesStatus && matchesSource;
     });
-  }, [searchQuery, statusFilter, sourceFilter]);
+  }, [leads, searchQuery, statusFilter, sourceFilter]);
 
   const handleSelectLead = (id: string) => {
     setSelectedLeads(prev => 
@@ -45,8 +50,20 @@ export default function LeadListing() {
   };
 
   const handleViewLead = (lead: Lead) => {
-    setSelectedLead(lead);
+    setSelectedLeadId(lead.id);
     setSheetOpen(true);
+  };
+
+  const handleExport = () => {
+    const toExport =
+      selectedLeads.length > 0
+        ? filteredLeads.filter((lead) => selectedLeads.includes(lead.id))
+        : filteredLeads;
+    exportLeadsToCsv(toExport);
+    toast({
+      title: 'Export started',
+      description: `Exporting ${toExport.length} lead${toExport.length === 1 ? '' : 's'} to CSV.`,
+    });
   };
 
   return (
@@ -63,12 +80,10 @@ export default function LeadListing() {
           <Button variant="outline">
             <Upload className="w-4 h-4 mr-2" /> Import
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" /> Export
           </Button>
-          <Button>
-            <Plus className="w-4 h-4 mr-2" /> Add Lead
-          </Button>
+          <AddLeadDialog />
         </div>
       </div>
 
@@ -85,7 +100,7 @@ export default function LeadListing() {
       {/* Stats Summary */}
       <div className="flex items-center gap-6 mb-6 text-sm">
         <span className="text-muted-foreground">
-          Showing <span className="font-semibold text-foreground">{filteredLeads.length}</span> of {mockLeads.length} leads
+          Showing <span className="font-semibold text-foreground">{filteredLeads.length}</span> of {leads.length} leads
         </span>
         {selectedLeads.length > 0 && (
           <span className="text-primary font-medium">
@@ -105,7 +120,7 @@ export default function LeadListing() {
 
       {/* Lead Detail Sheet */}
       <LeadDetailSheet
-        lead={selectedLead}
+        leadId={selectedLeadId}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
       />

@@ -1,4 +1,6 @@
-import { Lead, statusLabels, teamMembers } from '@/data/mockLeads';
+import { LeadStatus, statusLabels, teamMembers } from '@/data/mockLeads';
+import { useLeads } from '@/context/LeadsContext';
+import { toast } from '@/hooks/use-toast';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SourceBadge } from '@/components/ui/SourceBadge';
 import { Button } from '@/components/ui/button';
@@ -32,15 +34,32 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 
 interface LeadDetailSheetProps {
-  lead: Lead | null;
+  leadId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function LeadDetailSheet({ lead, open, onOpenChange }: LeadDetailSheetProps) {
+export function LeadDetailSheet({ leadId, open, onOpenChange }: LeadDetailSheetProps) {
+  const { getLead, addNote, updateLeadStatus, updateLead } = useLeads();
   const [newNote, setNewNote] = useState('');
 
+  const lead = leadId ? getLead(leadId) : undefined;
   if (!lead) return null;
+
+  const handleAddNote = () => {
+    if (!newNote.trim()) return;
+    addNote(lead.id, newNote);
+    setNewNote('');
+    toast({ title: 'Note added', description: 'Your note has been saved.' });
+  };
+
+  const handleStatusChange = (status: LeadStatus) => {
+    updateLeadStatus(lead.id, status);
+    toast({
+      title: 'Status updated',
+      description: `${lead.name} is now marked as ${statusLabels[status]}.`,
+    });
+  };
 
   const timeline = [
     { 
@@ -113,7 +132,10 @@ export function LeadDetailSheet({ lead, open, onOpenChange }: LeadDetailSheetPro
                 <User className="w-4 h-4" />
                 <span className="text-xs font-medium uppercase">Assigned To</span>
               </div>
-              <Select defaultValue={lead.assignedTo}>
+              <Select
+                value={lead.assignedTo}
+                onValueChange={(value) => updateLead(lead.id, { assignedTo: value })}
+              >
                 <SelectTrigger className="border-0 p-0 h-auto font-semibold">
                   <SelectValue />
                 </SelectTrigger>
@@ -147,6 +169,7 @@ export function LeadDetailSheet({ lead, open, onOpenChange }: LeadDetailSheetPro
                   variant={lead.status === value ? "default" : "outline"}
                   size="sm"
                   className="rounded-full"
+                  onClick={() => handleStatusChange(value as LeadStatus)}
                 >
                   {lead.status === value && <CheckCircle2 className="w-3 h-3 mr-1" />}
                   {label}
@@ -165,7 +188,7 @@ export function LeadDetailSheet({ lead, open, onOpenChange }: LeadDetailSheetPro
                 onChange={(e) => setNewNote(e.target.value)}
                 rows={3}
               />
-              <Button size="sm" disabled={!newNote.trim()}>
+              <Button size="sm" disabled={!newNote.trim()} onClick={handleAddNote}>
                 <Plus className="w-4 h-4 mr-1" /> Add Note
               </Button>
             </div>

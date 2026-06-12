@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { mockLeads, Lead, LeadStatus, statusLabels, teamMembers } from '@/data/mockLeads';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Lead, LeadStatus, teamMembers } from '@/data/mockLeads';
+import { useLeads } from '@/context/LeadsContext';
+import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { 
@@ -26,11 +27,38 @@ const columns: { status: LeadStatus; label: string; icon: React.ElementType; col
   { status: 'converted', label: 'Converted', icon: ArrowRight, color: 'bg-accent' },
 ];
 
-export default function LeadManagement() {
-  const [leads] = useState(mockLeads);
+const statusFlow: LeadStatus[] = ['new', 'contacted', 'qualified', 'converted'];
 
-  const getLeadsByStatus = (status: LeadStatus) => 
-    leads.filter(lead => lead.status === status);
+export default function LeadManagement() {
+  const { leads, updateLeadStatus } = useLeads();
+  const [assigneeFilter, setAssigneeFilter] = useState('all');
+
+  const visibleLeads =
+    assigneeFilter === 'all'
+      ? leads
+      : leads.filter(
+          (lead) =>
+            lead.assignedTo ===
+            teamMembers.find((m) => m.id === assigneeFilter)?.name
+        );
+
+  const getLeadsByStatus = (status: LeadStatus) =>
+    visibleLeads.filter((lead) => lead.status === status);
+
+  const moveLead = (lead: Lead, direction: 'forward' | 'back') => {
+    const index = statusFlow.indexOf(lead.status);
+    const nextIndex = direction === 'forward' ? index + 1 : index - 1;
+    if (index === -1 || nextIndex < 0 || nextIndex >= statusFlow.length) return;
+    updateLeadStatus(lead.id, statusFlow[nextIndex]);
+  };
+
+  const markNotInterested = (lead: Lead) => {
+    updateLeadStatus(lead.id, 'not-interested');
+    toast({
+      title: 'Lead updated',
+      description: `${lead.name} marked as not interested.`,
+    });
+  };
 
   return (
     <div className="p-8">
@@ -45,7 +73,11 @@ export default function LeadManagement() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>Assigned to:</span>
-            <select className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm font-medium text-foreground">
+            <select
+              value={assigneeFilter}
+              onChange={(e) => setAssigneeFilter(e.target.value)}
+              className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm font-medium text-foreground"
+            >
               <option value="all">All Team Members</option>
               {teamMembers.map(member => (
                 <option key={member.id} value={member.id}>{member.name}</option>
@@ -75,7 +107,13 @@ export default function LeadManagement() {
               {/* Column Content */}
               <div className="flex-1 space-y-3 min-h-[400px] p-3 bg-secondary/30 rounded-xl">
                 {columnLeads.map((lead) => (
-                  <LeadCard key={lead.id} lead={lead} />
+                  <LeadCard
+                    key={lead.id}
+                    lead={lead}
+                    onMoveForward={() => moveLead(lead, 'forward')}
+                    onMoveBack={() => moveLead(lead, 'back')}
+                    onMarkNotInterested={() => markNotInterested(lead)}
+                  />
                 ))}
                 {columnLeads.length === 0 && (
                   <div className="flex items-center justify-center h-32 border-2 border-dashed border-border rounded-xl">
@@ -117,7 +155,17 @@ export default function LeadManagement() {
   );
 }
 
-function LeadCard({ lead }: { lead: Lead }) {
+interface LeadCardProps {
+  lead: Lead;
+  onMoveForward: () => void;
+  onMoveBack: () => void;
+  onMarkNotInterested: () => void;
+}
+
+function LeadCard({ lead, onMoveForward, onMoveBack, onMarkNotInterested }: LeadCardProps) {
+  const canMoveForward = lead.status !== 'converted';
+  const canMoveBack = lead.status !== 'new';
+
   return (
     <Card className="p-4 cursor-grab hover:shadow-md transition-shadow bg-card">
       <div className="flex items-start gap-3">
@@ -142,10 +190,13 @@ function LeadCard({ lead }: { lead: Lead }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>View Details</DropdownMenuItem>
-                <DropdownMenuItem>Call Now</DropdownMenuItem>
-                <DropdownMenuItem>Send Email</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive">
+                <DropdownMenuItem onClick={onMoveForward} disabled={!canMoveForward}>
+                  Move to Next Stage
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onMoveBack} disabled={!canMoveBack}>
+                  Move Back a Stage
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={onMarkNotInterested}>
                   Mark Not Interested
                 </DropdownMenuItem>
               </DropdownMenuContent>

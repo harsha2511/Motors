@@ -4,8 +4,17 @@ import { LeadSourceChart } from '@/components/dashboard/LeadSourceChart';
 import { ConversionChart } from '@/components/dashboard/ConversionChart';
 import { RecentLeads } from '@/components/dashboard/RecentLeads';
 import { TeamPerformance } from '@/components/dashboard/TeamPerformance';
+import { useLeads } from '@/context/LeadsContext';
 
 export default function Dashboard() {
+  const { leads } = useLeads();
+
+  const totalLeads = leads.length;
+  const convertedCount = leads.filter((l) => l.status === 'converted').length;
+  const qualifiedCount = leads.filter((l) => l.status === 'qualified').length;
+  const conversionRate =
+    totalLeads > 0 ? Math.round((convertedCount / totalLeads) * 100) : 0;
+
   return (
     <div className="p-8">
       {/* Header */}
@@ -18,7 +27,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
           title="Total Leads"
-          value="247"
+          value={String(totalLeads)}
           change={12}
           changeLabel="vs last month"
           icon={<Users className="w-6 h-6" />}
@@ -26,7 +35,7 @@ export default function Dashboard() {
         />
         <StatCard
           title="Conversion Rate"
-          value="32%"
+          value={`${conversionRate}%`}
           change={5}
           changeLabel="vs last month"
           icon={<TrendingUp className="w-6 h-6" />}
@@ -34,7 +43,7 @@ export default function Dashboard() {
         />
         <StatCard
           title="Qualified Leads"
-          value="89"
+          value={String(qualifiedCount)}
           change={-3}
           changeLabel="vs last month"
           icon={<Target className="w-6 h-6" />}

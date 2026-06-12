@@ -1,12 +1,17 @@
-import { mockLeads } from '@/data/mockLeads';
+import { useLeads } from '@/context/LeadsContext';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { SourceBadge } from '@/components/ui/SourceBadge';
 import { Clock, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 
 export function RecentLeads() {
-  const recentLeads = mockLeads.slice(0, 5);
+  const { leads } = useLeads();
+  const recentLeads = [...leads]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+    .slice(0, 5);
 
   return (
     <div className="stat-card animate-slide-up">
